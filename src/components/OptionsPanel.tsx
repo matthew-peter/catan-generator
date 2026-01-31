@@ -11,7 +11,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   return (
     <button
       onClick={onClick}
-      className={`px-2 py-1 rounded text-xs font-semibold transition-colors min-w-[52px]
+      className={`px-2 py-1 rounded text-xs font-semibold transition-colors min-w-[64px] text-center
         ${on ? 'bg-amber-500 text-amber-950' : 'bg-slate-700/60 text-slate-400'}`}
     >
       {children}

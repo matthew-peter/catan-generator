@@ -396,7 +396,8 @@ function generateNumbers(
   
   const canSwapNumbers = (i: number, j: number, arr: (NumberToken | null)[]): boolean => {
     // Don't swap nulls (desert tiles)
-    return arr[i] !== null && arr[j] !== null && arr[i] !== arr[j];
+    // Allow swapping same numbers - they may be on different resources affecting pip balance
+    return arr[i] !== null && arr[j] !== null;
   };
   
   // Custom optimization for numbers
