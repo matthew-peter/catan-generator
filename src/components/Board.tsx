@@ -268,8 +268,8 @@ function LandTile({ tile, size, x, y }: { tile: HexTile; size: number; x: number
       {/* Tile */}
       <path d={hexPath(0, 0, size * 0.94)} fill={`url(#tileGradient${tile.resource})`} stroke={colors.stroke} strokeWidth="2" />
       
-      {/* Resource icon token - identical to port tokens */}
-      <g transform={`translate(0, ${tile.number ? -size * 0.18 : 0})`}>
+      {/* Resource icon token - move up more when there's a number */}
+      <g transform={`translate(0, ${tile.number ? -size * 0.32 : 0})`}>
         <circle r={size * ICON_RADIUS} fill="#FFFEF8" />
         <text y={0} textAnchor="middle" fontSize={size * ICON_SIZE} dominantBaseline="central">
           {icon}
@@ -278,7 +278,7 @@ function LandTile({ tile, size, x, y }: { tile: HexTile; size: number; x: number
       
       {/* Number token - at bottom */}
       {tile.number && (
-        <g transform={`translate(0, ${size * 0.42})`}>
+        <g transform={`translate(0, ${size * 0.38})`}>
           <circle r={size * 0.28} fill="#FFFEF8" stroke="#8B7355" strokeWidth="1" />
           <text
             textAnchor="middle"
