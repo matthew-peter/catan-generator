@@ -69,7 +69,7 @@ const PORT_ICONS: Record<PortType, string> = {
 };
 
 // Uniform icon size multiplier for both tiles and ports
-const ICON_SIZE = 0.52;
+const ICON_SIZE = 0.48;
 
 // ============================================================================
 // FRAME PIECES
@@ -242,7 +242,7 @@ function FramePiece({ slotHexes, pieceDef, size, pieceId }: {
 // ============================================================================
 
 // Shared icon token radius
-const ICON_RADIUS = 0.32;
+const ICON_RADIUS = 0.38;
 
 function PortToken({ x, y, type, size }: { x: number; y: number; type: PortType; size: number }) {
   return (
