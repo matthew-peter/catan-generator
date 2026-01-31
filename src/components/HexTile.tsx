@@ -1,5 +1,5 @@
-import type { HexTile } from '../types';
-import { RESOURCE_COLORS, PIP_VALUES, NumberToken } from '../types';
+import type { HexTile, NumberToken } from '../types';
+import { RESOURCE_COLORS, PIP_VALUES } from '../types';
 
 interface HexTileComponentProps {
   tile: HexTile;
