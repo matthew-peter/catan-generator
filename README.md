@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# Catan Board Generator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A mobile-first web app that randomly generates balanced Catan board setups for 3-4 and 5-6 player games.
 
-Currently, two official plugins are available:
+![Catan Board Generator](https://img.shields.io/badge/Catan-Board%20Generator-orange)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Player Count Options**: Support for both 3-4 player (19 tiles) and 5-6 player (30 tiles) boards
+- **Desert Placement**: Choose between center placement or random placement
+- **Balanced Distribution**: 
+  - Resources are distributed to minimize same-resource adjacencies
+  - High-value numbers (6 & 8) are spread across different resources
+  - No two 6s or 8s adjacent to each other
+- **Random Distribution**: Option for fully random placement
+- **Proper Sea Frame**: Ocean hexes form a complete hexagonal border around the island
+- **Harbor Pieces**: 9 ports (4 generic 3:1, 5 specialized 2:1) displayed as game-accurate tokens
+- **Mobile-First Design**: Beautiful, responsive UI optimized for phones
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS 4
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Getting Started
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+```bash
+# Install dependencies
+npm install
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Start development server
+npm run dev
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Build for production
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Board Layout
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The board uses a row-based hexagonal layout:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **3-4 Player**: 3-4-5-4-3 rows (19 land hexes)
+- **5-6 Player**: 3-4-5-6-5-4-3 rows (30 land hexes)
+
+## Resources
+
+| Resource | 3-4 Player | 5-6 Player |
+|----------|------------|------------|
+| Wood     | 4          | 6          |
+| Brick    | 3          | 5          |
+| Wheat    | 4          | 6          |
+| Sheep    | 4          | 6          |
+| Ore      | 3          | 5          |
+| Desert   | 1          | 2          |
+
+## License
+
+MIT
