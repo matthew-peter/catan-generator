@@ -278,12 +278,12 @@ function LandTile({ tile, size, x, y }: { tile: HexTile; size: number; x: number
       
       {/* Number token - at bottom */}
       {tile.number && (
-        <g transform={`translate(0, ${size * 0.46})`}>
-          <circle r={size * 0.18} fill="#FFFEF8" />
+        <g transform={`translate(0, ${size * 0.42})`}>
+          <circle r={size * 0.28} fill="#FFFEF8" stroke="#8B7355" strokeWidth="1" />
           <text
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={size * 0.18}
+            fontSize={size * 0.30}
             fontWeight="bold"
             fontFamily="Georgia, serif"
             fill={tile.number === 6 || tile.number === 8 ? '#B71C1C' : '#2D2015'}
