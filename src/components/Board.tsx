@@ -111,26 +111,32 @@ const SLOTS_3_4: [number, number][][] = [
 ];
 
 // 5-6 player slot configuration
-// Extension pieces CANNOT be adjacent to each other
-// Each side (right & left) has 5 hexes: 3 for a long piece, 2 for extensions
-// The only valid config: extensions at the ENDS of each side (not adjacent)
-// This ensures the long piece fits in the middle 3 consecutive hexes
+// Extension pieces have connectors on TWO OPPOSITE sides only.
+// They can only extend a straight side - they CANNOT sit at corners
+// where the border changes angle.
+//
+// The long pieces cover the corners. Extensions extend straight from them.
+// Right side (5 hexes): long piece covers top 3 (including corner), 
+//   extensions extend straight below.
+// Left side (5 hexes): long piece covers bottom 3 (including corner),
+//   extensions extend straight above.
 
 const SLOTS_5_6_LONG: [number, number][][] = [
   [[0, -1], [1, -1], [2, -1]],      // Top
-  [[3, 0], [3, 1], [3, 2]],         // Right (middle 3, leaving ends for extensions)
+  [[3, -1], [3, 0], [3, 1]],        // Right - long piece at top, covers corner with top
   [[2, 4], [1, 5], [0, 6]],         // Bottom-right
   [[-1, 7], [-2, 7], [-3, 7]],      // Bottom
-  [[-4, 6], [-4, 5], [-4, 4]],      // Left (middle 3, leaving ends for extensions)
+  [[-4, 7], [-4, 6], [-4, 5]],      // Left - long piece at bottom, covers corner with bottom
   [[-3, 2], [-2, 1], [-1, 0]],      // Top-left
 ];
 
-// Extensions at the ends of right and left sides (non-adjacent)
+// Extensions extend the straight part of right and left sides
+// They are NOT at corners - just straight continuations
 const SLOTS_5_6_EXT: [number, number][][] = [
-  [[3, -1]],   // Right top end
-  [[3, 3]],    // Right bottom end
-  [[-4, 7]],   // Left bottom end
-  [[-4, 3]],   // Left top end
+  [[3, 2]],    // Right - extends straight below long piece
+  [[3, 3]],    // Right - continues straight
+  [[-4, 4]],   // Left - extends straight above long piece
+  [[-4, 3]],   // Left - continues straight
 ];
 
 function computeFrameShape(hexPositions: [number, number][], size: number): string {
