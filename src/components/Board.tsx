@@ -111,32 +111,32 @@ const SLOTS_3_4: [number, number][][] = [
 ];
 
 // 5-6 player slot configuration
-// Extension pieces have connectors on TWO OPPOSITE sides only.
-// They can only extend a straight side - they CANNOT sit at corners
-// where the border changes angle.
 //
-// The long pieces cover the corners. Extensions extend straight from them.
-// Right side (5 hexes): long piece covers top 3 (including corner), 
-//   extensions extend straight below.
-// Left side (5 hexes): long piece covers bottom 3 (including corner),
-//   extensions extend straight above.
+// Each long piece starts at a corner (where direction changes 60°) and extends
+// 3 hexes along one side. Extensions fill the straight gaps between long pieces.
+// Extensions have connectors on two OPPOSITE edges only, so they can ONLY
+// extend a straight section — never sit at a corner.
+//
+// The board directions (clockwise): E → SE → SW → W → NW → NE
+// Each corner is where one direction transitions to the next.
+// Long pieces handle corners; extensions fill straight gaps between them.
 
 const SLOTS_5_6_LONG: [number, number][][] = [
-  [[0, -1], [1, -1], [2, -1]],      // Top
-  [[3, -1], [3, 0], [3, 1]],        // Right - long piece at top, covers corner with top
-  [[2, 4], [1, 5], [0, 6]],         // Bottom-right
-  [[-1, 7], [-2, 7], [-3, 7]],      // Bottom
-  [[-4, 7], [-4, 6], [-4, 5]],      // Left - long piece at bottom, covers corner with bottom
-  [[-3, 2], [-2, 1], [-1, 0]],      // Top-left
+  [[0, -1], [1, -1], [2, -1]],      // Top (E direction)
+  [[3, -1], [3, 0], [3, 1]],        // Right (SE direction, corner E→SE at start)
+  [[3, 3], [2, 4], [1, 5]],         // Bottom-right (SW direction, corner SE→SW at start)
+  [[-1, 7], [-2, 7], [-3, 7]],      // Bottom (W direction, corner SW→W at start)
+  [[-4, 7], [-4, 6], [-4, 5]],      // Left (NW direction, corner W→NW at start)
+  [[-4, 3], [-3, 2], [-2, 1]],      // Top-left (NE direction, corner NW→NE at start)
 ];
 
-// Extensions extend the straight part of right and left sides
-// They are NOT at corners - just straight continuations
+// Extensions: one per gap between long pieces, on straight sections only.
+// None are at corners, none are adjacent to each other.
 const SLOTS_5_6_EXT: [number, number][][] = [
-  [[3, 2]],    // Right - extends straight below long piece
-  [[3, 3]],    // Right - continues straight
-  [[-4, 4]],   // Left - extends straight above long piece
-  [[-4, 3]],   // Left - continues straight
+  [[3, 2]],    // Between right and bottom-right (SE direction)
+  [[0, 6]],    // Between bottom-right and bottom (SW direction)
+  [[-4, 4]],   // Between left and top-left (NW direction)
+  [[-1, 0]],   // Between top-left and top (NE direction)
 ];
 
 function computeFrameShape(hexPositions: [number, number][], size: number): string {
