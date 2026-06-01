@@ -31,7 +31,7 @@ export interface Port {
 export interface BoardConfig {
   playerCount: '3-4' | '5-6';
   desertPlacement: 'center' | 'random';
-  numberPlacement: 'default' | 'random' | 'balanced';
+  numberPlacement: 'random' | 'balanced';
   resourcePlacement: 'random' | 'balanced';
   portPlacement: 'fixed' | 'random';
 }

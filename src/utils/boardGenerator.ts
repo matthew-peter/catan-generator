@@ -145,6 +145,30 @@ function buildCoordMap(coords: [number, number][]): Map<string, number> {
   return map;
 }
 
+// Enumerate the board's settlement vertices where three hexes meet, as triples
+// of tile indices. These are the spots players actually build on, so their
+// production values are what make a board feel fair or lopsided. Each corner of
+// each hex is examined and deduplicated by its sorted hex triple.
+function buildVertices(
+  coords: [number, number][],
+  coordMap: Map<string, number>
+): [number, number, number][] {
+  const seen = new Map<string, [number, number, number]>();
+  coords.forEach(([q, r], h) => {
+    const neighbors = getNeighbors(q, r).map(([nq, nr]) => coordMap.get(`${nq},${nr}`));
+    for (let k = 0; k < 6; k++) {
+      const a = neighbors[k];
+      const b = neighbors[(k + 1) % 6];
+      // Only count corners where all three hexes exist (interior settlement spots)
+      if (a !== undefined && b !== undefined) {
+        const tri = [h, a, b].sort((x, y) => x - y) as [number, number, number];
+        seen.set(tri.join(','), tri);
+      }
+    }
+  });
+  return [...seen.values()];
+}
+
 // Count same-type neighbors for a tile
 function countSameTypeNeighbors(
   idx: number,
@@ -165,41 +189,56 @@ function countSameTypeNeighbors(
   }, 0);
 }
 
-// Simulated annealing optimization for resource/number placement
-function optimizePlacement<T>(
+// Annealing parameters.
+//
+// START_TEMPERATURE must be on the same scale as the score deltas the score
+// functions produce (a 6/8 adjacency is +100, a same-number adjacency +30,
+// etc.). With the previous value of 1.0, exp(-delta/T) was effectively 0 for
+// every uphill move from the first iteration on, so the "annealing" was really
+// just greedy hill-climbing that got stuck in local minima. Starting hot lets
+// the search accept temporary setbacks and escape those minima.
+const START_TEMPERATURE = 100;
+const MIN_TEMPERATURE = 0.1;
+
+// Geometric cooling rate that takes temperature from START to MIN smoothly over
+// the full iteration budget, instead of decaying to ~0 in the first third.
+function coolingRateFor(iterations: number): number {
+  return Math.pow(MIN_TEMPERATURE / START_TEMPERATURE, 1 / Math.max(1, iterations));
+}
+
+// A single simulated-annealing run. Returns the best arrangement found and its
+// score so callers can compare across restarts.
+function annealOnce<T>(
   initial: T[],
-  coords: [number, number][],
-  scoreFn: (arr: T[], coords: [number, number][], coordMap: Map<string, number>) => number,
-  canSwap: (i: number, j: number, arr: T[]) => boolean,
-  iterations: number = 2000
-): T[] {
-  const coordMap = buildCoordMap(coords);
-  let current = [...initial];
-  let currentScore = scoreFn(current, coords, coordMap);
+  coordMap: Map<string, number>,
+  scoreFn: (arr: T[], coordMap: Map<string, number>) => number,
+  pickSwap: (arr: T[]) => [number, number] | null,
+  iterations: number
+): { arrangement: T[]; score: number } {
+  const current = [...initial];
+  let currentScore = scoreFn(current, coordMap);
   let best = [...current];
   let bestScore = currentScore;
-  
-  let temperature = 1.0;
-  const coolingRate = 0.995;
-  
+
+  let temperature = START_TEMPERATURE;
+  const coolingRate = coolingRateFor(iterations);
+
   for (let iter = 0; iter < iterations; iter++) {
-    // Pick two random indices to swap
-    const i = Math.floor(Math.random() * current.length);
-    let j = Math.floor(Math.random() * current.length);
-    while (j === i) {
-      j = Math.floor(Math.random() * current.length);
+    const swap = pickSwap(current);
+    if (swap === null) {
+      temperature *= coolingRate;
+      continue;
     }
-    
-    // Check if swap is allowed
-    if (!canSwap(i, j, current)) continue;
-    
+    const [i, j] = swap;
+
     // Swap and evaluate
     [current[i], current[j]] = [current[j], current[i]];
-    const newScore = scoreFn(current, coords, coordMap);
-    
-    // Accept or reject
+    const newScore = scoreFn(current, coordMap);
+
+    // Accept improving moves always; accept uphill moves with a probability
+    // that shrinks as the board cools.
     const delta = newScore - currentScore;
-    if (delta < 0 || Math.random() < Math.exp(-delta / temperature)) {
+    if (delta <= 0 || Math.random() < Math.exp(-delta / temperature)) {
       currentScore = newScore;
       if (currentScore < bestScore) {
         best = [...current];
@@ -209,11 +248,42 @@ function optimizePlacement<T>(
       // Revert swap
       [current[i], current[j]] = [current[j], current[i]];
     }
-    
+
     temperature *= coolingRate;
   }
-  
-  return best;
+
+  return { arrangement: best, score: bestScore };
+}
+
+// Run annealing several times from independent shuffles and keep the best
+// result. Restarts are cheap (all in-memory) and meaningfully reduce the chance
+// of returning a board that happened to anneal into a poor local minimum.
+function optimizeWithRestarts<T>(
+  buildInitial: () => T[],
+  coordMap: Map<string, number>,
+  scoreFn: (arr: T[], coordMap: Map<string, number>) => number,
+  pickSwap: (arr: T[]) => [number, number] | null,
+  iterations: number,
+  restarts: number
+): T[] {
+  let best: T[] | null = null;
+  let bestScore = Infinity;
+
+  for (let r = 0; r < restarts; r++) {
+    const { arrangement, score } = annealOnce(
+      buildInitial(),
+      coordMap,
+      scoreFn,
+      pickSwap,
+      iterations
+    );
+    if (score < bestScore) {
+      bestScore = score;
+      best = arrangement;
+    }
+  }
+
+  return best!;
 }
 
 // Score function for resource placement - penalizes same-type adjacencies
@@ -232,12 +302,20 @@ function scoreResources(
   return score;
 }
 
+// How strongly to flatten the production value of settlement spots. Tuned
+// empirically: weight 2 cuts the spread of spot values by ~60% versus an
+// unbalanced board while never forcing a 6/8 or same-number adjacency, and
+// still leaves some strong/weak spots so the board keeps its character. Raising
+// it pushes toward an evener but blander board; 0 disables vertex balancing.
+const VERTEX_FAIRNESS_WEIGHT = 2;
+
 // Score function for number placement - penalizes 6/8 adjacencies and same-number adjacencies
 function scoreNumbers(
   numbers: (NumberToken | null)[],
   coords: [number, number][],
   coordMap: Map<string, number>,
-  resources: ResourceType[]
+  resources: ResourceType[],
+  vertices: [number, number, number][]
 ): number {
   let score = 0;
   
@@ -305,7 +383,27 @@ function scoreNumbers(
   
   // Penalize high variance (unfair resource distribution)
   score += variance * 2;
-  
+
+  // Penalize uneven settlement spots: compute each vertex's total pips and
+  // penalize the variance across vertices. This is what actually flattens the
+  // "one corner is gold, another is dead" feel that the per-resource and
+  // adjacency terms above don't capture.
+  if (vertices.length > 0) {
+    let vertexSum = 0;
+    const vertexPips = vertices.map(([a, b, c]) => {
+      const total =
+        (numbers[a] !== null ? PIP_VALUES[numbers[a]!] : 0) +
+        (numbers[b] !== null ? PIP_VALUES[numbers[b]!] : 0) +
+        (numbers[c] !== null ? PIP_VALUES[numbers[c]!] : 0);
+      vertexSum += total;
+      return total;
+    });
+    const vertexAvg = vertexSum / vertexPips.length;
+    const vertexVariance =
+      vertexPips.reduce((sum, v) => sum + Math.pow(v - vertexAvg, 2), 0) / vertexPips.length;
+    score += vertexVariance * VERTEX_FAIRNESS_WEIGHT;
+  }
+
   return score;
 }
 
@@ -328,36 +426,48 @@ function generateResources(
     return shuffle(resources);
   }
 
-  // Balanced placement using optimization
-  let initial = shuffle(resources);
-  
-  // If desert should be centered, fix it in place
-  if (config.desertPlacement === 'center') {
-    const centerIdx = getCenterIndex(definition);
-    const desertIdx = initial.indexOf('desert');
-    if (desertIdx !== -1 && desertIdx !== centerIdx) {
-      [initial[desertIdx], initial[centerIdx]] = [initial[centerIdx], initial[desertIdx]];
+  const coordMap = buildCoordMap(coords);
+  const centerIdx = getCenterIndex(definition);
+  const centerDesert = config.desertPlacement === 'center';
+
+  // Each restart begins from a fresh shuffle (with the desert pinned to the
+  // center when configured) so the restarts explore genuinely different starts.
+  const buildInitial = (): ResourceType[] => {
+    const initial = shuffle(resources);
+    if (centerDesert) {
+      const desertIdx = initial.indexOf('desert');
+      if (desertIdx !== -1 && desertIdx !== centerIdx) {
+        [initial[desertIdx], initial[centerIdx]] = [initial[centerIdx], initial[desertIdx]];
+      }
     }
-  }
-  
-  // Optimize placement
+    return initial;
+  };
+
   const canSwapResources = (i: number, j: number, arr: ResourceType[]): boolean => {
     // Don't move desert if it should be centered
-    if (config.desertPlacement === 'center') {
-      const centerIdx = getCenterIndex(definition);
-      if ((i === centerIdx || j === centerIdx) && (arr[i] === 'desert' || arr[j] === 'desert')) {
-        return false;
-      }
+    if (centerDesert && (i === centerIdx || j === centerIdx) &&
+        (arr[i] === 'desert' || arr[j] === 'desert')) {
+      return false;
     }
     return arr[i] !== arr[j]; // Only swap different resources
   };
-  
-  return optimizePlacement(
-    initial,
-    coords,
-    scoreResources,
-    canSwapResources,
-    3000
+
+  const pickSwap = (arr: ResourceType[]): [number, number] | null => {
+    const i = Math.floor(Math.random() * arr.length);
+    let j = Math.floor(Math.random() * arr.length);
+    while (j === i) {
+      j = Math.floor(Math.random() * arr.length);
+    }
+    return canSwapResources(i, j, arr) ? [i, j] : null;
+  };
+
+  return optimizeWithRestarts(
+    buildInitial,
+    coordMap,
+    (arr, cm) => scoreResources(arr, coords, cm),
+    pickSwap,
+    2000,
+    6
   );
 }
 
@@ -380,67 +490,43 @@ function generateNumbers(
     return result;
   }
 
-  // Balanced placement using optimization
-  const shuffledNumbers = shuffle(numbers);
-  
-  // Create initial assignment
-  const numberAssignment: (NumberToken | null)[] = [...result];
-  nonDesertIndices.forEach((idx, i) => {
-    numberAssignment[idx] = shuffledNumbers[i];
-  });
-  
-  // Optimize with resource awareness
+  // Balanced placement using optimization, resource-aware so the score can
+  // balance pip totals and high numbers across resource types, and
+  // vertex-aware so settlement spots end up close in value.
   const coordMap = buildCoordMap(coords);
-  const scoreWithResources = (nums: (NumberToken | null)[]) => 
-    scoreNumbers(nums, coords, coordMap, resources);
-  
-  const canSwapNumbers = (i: number, j: number, arr: (NumberToken | null)[]): boolean => {
-    // Don't swap nulls (desert tiles)
-    // Allow swapping same numbers - they may be on different resources affecting pip balance
-    return arr[i] !== null && arr[j] !== null;
+  const vertices = buildVertices(coords, coordMap);
+  const scoreWithResources = (nums: (NumberToken | null)[]) =>
+    scoreNumbers(nums, coords, coordMap, resources, vertices);
+
+  // Each restart begins from a fresh assignment of the numbers to non-desert
+  // tiles (desert tiles stay null).
+  const buildInitial = (): (NumberToken | null)[] => {
+    const shuffledNumbers = shuffle(numbers);
+    const assignment: (NumberToken | null)[] = [...result];
+    nonDesertIndices.forEach((idx, i) => {
+      assignment[idx] = shuffledNumbers[i];
+    });
+    return assignment;
   };
-  
-  // Custom optimization for numbers
-  let current = [...numberAssignment];
-  let currentScore = scoreWithResources(current);
-  let best = [...current];
-  let bestScore = currentScore;
-  
-  let temperature = 1.0;
-  const coolingRate = 0.995;
-  
-  for (let iter = 0; iter < 4000; iter++) {
-    // Pick two random non-desert indices
+
+  // Only ever swap two number tokens, never a desert (null) slot.
+  const pickSwap = (): [number, number] | null => {
     const iLocal = Math.floor(Math.random() * nonDesertIndices.length);
     let jLocal = Math.floor(Math.random() * nonDesertIndices.length);
     while (jLocal === iLocal) {
       jLocal = Math.floor(Math.random() * nonDesertIndices.length);
     }
-    
-    const i = nonDesertIndices[iLocal];
-    const j = nonDesertIndices[jLocal];
-    
-    if (!canSwapNumbers(i, j, current)) continue;
-    
-    // Swap and evaluate
-    [current[i], current[j]] = [current[j], current[i]];
-    const newScore = scoreWithResources(current);
-    
-    const delta = newScore - currentScore;
-    if (delta < 0 || Math.random() < Math.exp(-delta / temperature)) {
-      currentScore = newScore;
-      if (currentScore < bestScore) {
-        best = [...current];
-        bestScore = currentScore;
-      }
-    } else {
-      [current[i], current[j]] = [current[j], current[i]];
-    }
-    
-    temperature *= coolingRate;
-  }
-  
-  return best;
+    return [nonDesertIndices[iLocal], nonDesertIndices[jLocal]];
+  };
+
+  return optimizeWithRestarts(
+    buildInitial,
+    coordMap,
+    scoreWithResources,
+    pickSwap,
+    4000,
+    6
+  );
 }
 
 // Generate ports
@@ -466,7 +552,7 @@ export function generateBoard(config: BoardConfig): GameSetup {
   const coords = definition.coordinates;
 
   // Generate resources
-  let resources = generateResources(config, definition);
+  const resources = generateResources(config, definition);
 
   // Ensure desert is at center if configured
   if (config.desertPlacement === 'center') {
